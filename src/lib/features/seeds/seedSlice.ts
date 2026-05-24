@@ -1,7 +1,6 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '@/lib/axios';
 
-// Types
 export interface Seed {
   id: string;
   seedId: string;
@@ -76,8 +75,8 @@ export interface Seed {
 
 export interface FilterParams {
   category?: string;
-  season_id?: string;
-  difficulty?: string;
+  season_id?: string[];
+  difficulty?: string[];
   minPrice?: number;
   maxPrice?: number;
   organic?: boolean;
@@ -87,6 +86,15 @@ export interface FilterParams {
   limit?: number;
 }
 
+export interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+}
+
 interface SeedState {
   items: Seed[];
   total: number;
@@ -94,13 +102,7 @@ interface SeedState {
   error: string | null;
   selectedSeed: Seed | null;
   featuredSeeds: Seed[];
-  statistics: {
-    total: number;
-    organic: number;
-    export: number;
-    byCategory: Array<{ category: string; _count: number }>;
-    byDifficulty: Array<{ difficulty: string; _count: number }>;
-  } | null;
+  pagination: PaginationInfo;
 }
 
 const initialState: SeedState = {
@@ -110,172 +112,103 @@ const initialState: SeedState = {
   error: null,
   selectedSeed: null,
   featuredSeeds: [],
-  statistics: null,
+  pagination: {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 12,
+    hasNextPage: false,
+    hasPrevPage: false,
+  },
 };
 
-// ============================================
-// Async Thunks (Backend Routes অনুযায়ী)
-// ============================================
-
-// GET /seeds/get-all - সব বীজ পাওয়ার জন্য
+// Fetch all seeds with filters
 export const fetchSeeds = createAsyncThunk(
   'seeds/fetchAll',
   async (params: FilterParams, { rejectWithValue }) => {
     try {
       const queryParams = new URLSearchParams();
       
-      if (params.category) queryParams.append('category', params.category);
-    //   if (params.season_id) queryParams.append('season_id', params.season_id);
-    //   if (params.difficulty) queryParams.append('difficulty', params.difficulty);
-      if (params.minPrice) queryParams.append('minPrice', params.minPrice.toString());
-      if (params.maxPrice) queryParams.append('maxPrice', params.maxPrice.toString());
-      if (params.organic) queryParams.append('organic', 'true');
-      if (params.export) queryParams.append('export', 'true');
-      if (params.search) queryParams.append('search', params.search);
-      if (params.page) queryParams.append('page', params.page.toString());
-      if (params.limit) queryParams.append('limit', params.limit.toString());
+      if (params.category && params.category !== '') {
+        queryParams.append('category', params.category);
+      }
       
-      const response = await axiosInstance.get(`/api/v1/seeds/get-all?${queryParams.toString()}`);
+      if (params.season_id && params.season_id.length > 0) {
+        queryParams.append('season_id', params.season_id.join(','));
+      }
+      
+      if (params.difficulty && params.difficulty.length > 0) {
+        queryParams.append('difficulty', params.difficulty.join(','));
+      }
+      
+      if (params.minPrice !== undefined && params.minPrice !== null && params.minPrice > 0) {
+        queryParams.append('minPrice', params.minPrice.toString());
+      }
+      
+      if (params.maxPrice !== undefined && params.maxPrice !== null && params.maxPrice < 100000) {
+        queryParams.append('maxPrice', params.maxPrice.toString());
+      }
+      
+      if (params.organic) {
+        queryParams.append('organic', 'true');
+      }
+      
+      if (params.export) {
+        queryParams.append('export', 'true');
+      }
+      
+      if (params.search && params.search !== '') {
+        queryParams.append('search', params.search);
+      }
+      
+      if (params.page) {
+        queryParams.append('page', params.page.toString());
+      }
+      
+      if (params.limit) {
+        queryParams.append('limit', params.limit.toString());
+      }
+      
+      const url = `/api/v1/seeds/get-all?${queryParams.toString()}`;
+      console.log('Fetching seeds from:', url);
+      
+      const response = await axiosInstance.get(url);
+      console.log('API Response:', response.data);
+      
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch seeds');
+    } catch (error: unknown) {
+      console.error('Fetch seeds error:', error);
+      return rejectWithValue((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to fetch seeds');
     }
   }
 );
 
-// GET /seeds/featured - ফিচার্ড বীজ পাওয়ার জন্য
+// Fetch featured seeds
 export const fetchFeaturedSeeds = createAsyncThunk(
   'seeds/fetchFeatured',
   async (limit: number = 10, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get(`/api/v1/seeds/featured?limit=${limit}`);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch featured seeds');
+    } catch (error: unknown) {
+      return rejectWithValue((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to fetch featured seeds');
     }
   }
 );
 
-// GET /seeds/search - সার্চ করার জন্য
-export const searchSeeds = createAsyncThunk(
-  'seeds/search',
-  async ({ query, limit }: { query: string; limit?: number }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`/api/v1/seeds/search?q=${query}&limit=${limit || 20}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to search seeds');
-    }
-  }
-);
-
-// GET /seeds/statistics - স্ট্যাটিস্টিক্স পাওয়ার জন্য
-export const fetchSeedStatistics = createAsyncThunk(
-  'seeds/fetchStatistics',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`/api/v1/seeds/statistics`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch statistics');
-    }
-  }
-);
-
-// GET /seeds/category/:category - ক্যাটাগরি অনুযায়ী বীজ পাওয়ার জন্য
-export const fetchSeedsByCategory = createAsyncThunk(
-  'seeds/fetchByCategory',
-  async ({ category, limit }: { category: string; limit?: number }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`/api/v1/seeds/category/${category}?limit=${limit || 20}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch seeds by category');
-    }
-  }
-);
-
-// GET /seeds/difficulty/:difficulty - অসুবিধা অনুযায়ী বীজ পাওয়ার জন্য
-export const fetchSeedsByDifficulty = createAsyncThunk(
-  'seeds/fetchByDifficulty',
-  async ({ difficulty, limit }: { difficulty: string; limit?: number }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`/api/v1/seeds/difficulty/${difficulty}?limit=${limit || 20}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch seeds by difficulty');
-    }
-  }
-);
-
-// GET /seeds/season/:seasonId - মৌসুম অনুযায়ী বীজ পাওয়ার জন্য
-export const fetchSeedsBySeason = createAsyncThunk(
-  'seeds/fetchBySeason',
-  async ({ seasonId, limit }: { seasonId: string; limit?: number }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.get(`/api/v1/seeds/season/${seasonId}?limit=${limit || 20}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch seeds by season');
-    }
-  }
-);
-
-// GET /seeds/:id - সিঙ্গেল বীজ পাওয়ার জন্য
+// Fetch single seed by ID
 export const fetchSeedById = createAsyncThunk(
   'seeds/fetchById',
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await axiosInstance.get(`/api/v1/seeds/${id}`);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch seed');
+    } catch (error: unknown) {
+      return rejectWithValue((error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Failed to fetch seed');
     }
   }
 );
 
-// POST /seeds/create - নতুন বীজ তৈরি করার জন্য (Admin only)
-export const createSeed = createAsyncThunk(
-  'seeds/create',
-  async (seedData: Partial<Seed>, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.post(`/api/v1/seeds/create`, seedData);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create seed');
-    }
-  }
-);
-
-// PUT /seeds/:id - বীজ আপডেট করার জন্য (Admin only)
-export const updateSeed = createAsyncThunk(
-  'seeds/update',
-  async ({ id, data }: { id: string; data: Partial<Seed> }, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.put(`/api/v1/seeds/${id}`, data);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to update seed');
-    }
-  }
-);
-
-// DELETE /seeds/:id - বীজ ডিলিট করার জন্য (Admin only)
-export const deleteSeed = createAsyncThunk(
-  'seeds/delete',
-  async (id: string, { rejectWithValue }) => {
-    try {
-      const response = await axiosInstance.delete(`/api/v1/seeds/${id}`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete seed');
-    }
-  }
-);
-
-// ============================================
-// Slice
-// ============================================
 const seedSlice = createSlice({
   name: 'seeds',
   initialState,
@@ -289,6 +222,7 @@ const seedSlice = createSlice({
     clearSeeds: (state) => {
       state.items = [];
       state.total = 0;
+      state.pagination = initialState.pagination;
     },
   },
   extraReducers: (builder) => {
@@ -300,12 +234,56 @@ const seedSlice = createSlice({
       })
       .addCase(fetchSeeds.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.data || action.payload;
-        state.total = action.payload.pagination?.total || action.payload.data?.length || 0;
+        
+        const responseData = action.payload;
+        
+        // Handle response from your API
+        if (responseData.success) {
+          // Get items from response
+          if (responseData.data && Array.isArray(responseData.data)) {
+            state.items = responseData.data;
+          } else {
+            state.items = [];
+          }
+          
+          // Get total from meta
+          if (responseData.meta) {
+            state.total = responseData.meta.total;
+            state.pagination = {
+              currentPage: responseData.meta.page,
+              totalPages: responseData.meta.totalPages,
+              totalItems: responseData.meta.total,
+              itemsPerPage: responseData.meta.limit,
+              hasNextPage: responseData.meta.hasNextPage,
+              hasPrevPage: responseData.meta.hasPrevPage
+            };
+          } else {
+            state.total = state.items.length;
+            state.pagination = {
+              currentPage: 1,
+              totalPages: Math.ceil(state.items.length / 12),
+              totalItems: state.items.length,
+              itemsPerPage: 12,
+              hasNextPage: false,
+              hasPrevPage: false
+            };
+          }
+        } else {
+          state.items = [];
+          state.total = 0;
+          state.error = responseData.message || 'Failed to fetch seeds';
+        }
+        
+        console.log('Seeds loaded:', {
+          itemsCount: state.items.length,
+          total: state.total,
+          pagination: state.pagination
+        });
       })
       .addCase(fetchSeeds.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        console.error('Fetch seeds rejected:', action.payload);
       })
       
       // Fetch featured seeds
@@ -314,7 +292,16 @@ const seedSlice = createSlice({
       })
       .addCase(fetchFeaturedSeeds.fulfilled, (state, action) => {
         state.loading = false;
-        state.featuredSeeds = action.payload.data || action.payload;
+        const responseData = action.payload;
+        if (responseData.data && Array.isArray(responseData.data)) {
+          state.featuredSeeds = responseData.data;
+        } else if (responseData.seeds && Array.isArray(responseData.seeds)) {
+          state.featuredSeeds = responseData.seeds;
+        } else if (Array.isArray(responseData)) {
+          state.featuredSeeds = responseData;
+        } else {
+          state.featuredSeeds = [];
+        }
       })
       .addCase(fetchFeaturedSeeds.rejected, (state, action) => {
         state.loading = false;
@@ -328,56 +315,18 @@ const seedSlice = createSlice({
       })
       .addCase(fetchSeedById.fulfilled, (state, action) => {
         state.loading = false;
-        state.selectedSeed = action.payload.data || action.payload;
+        const responseData = action.payload;
+        if (responseData.data) {
+          state.selectedSeed = responseData.data;
+        } else if (responseData.seed) {
+          state.selectedSeed = responseData.seed;
+        } else {
+          state.selectedSeed = responseData;
+        }
       })
       .addCase(fetchSeedById.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      })
-      
-      // Fetch statistics
-      .addCase(fetchSeedStatistics.fulfilled, (state, action) => {
-        state.statistics = action.payload.data || action.payload;
-      })
-      
-      // Search seeds
-      .addCase(searchSeeds.fulfilled, (state, action) => {
-        state.items = action.payload.data || action.payload;
-        state.total = action.payload.data?.length || 0;
-      })
-      
-      // Fetch by category
-      .addCase(fetchSeedsByCategory.fulfilled, (state, action) => {
-        state.items = action.payload.data || action.payload;
-        state.total = action.payload.data?.length || 0;
-      })
-      
-      // Create seed
-      .addCase(createSeed.fulfilled, (state, action) => {
-        state.items.unshift(action.payload.data || action.payload);
-        state.total += 1;
-      })
-      
-      // Update seed
-      .addCase(updateSeed.fulfilled, (state, action) => {
-        const updatedSeed = action.payload.data || action.payload;
-        const index = state.items.findIndex((item) => item.id === updatedSeed.id);
-        if (index !== -1) {
-          state.items[index] = updatedSeed;
-        }
-        if (state.selectedSeed?.id === updatedSeed.id) {
-          state.selectedSeed = updatedSeed;
-        }
-      })
-      
-      // Delete seed
-      .addCase(deleteSeed.fulfilled, (state, action) => {
-        const deletedId = action.meta.arg;
-        state.items = state.items.filter((item) => item.id !== deletedId);
-        state.total -= 1;
-        if (state.selectedSeed?.id === deletedId) {
-          state.selectedSeed = null;
-        }
       });
   },
 });

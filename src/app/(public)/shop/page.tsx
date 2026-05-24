@@ -1,159 +1,321 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useAppDispatch } from '@/lib/hooks/useAppDispatch';
+import { useState, useEffect } from 'react';
 import { useAppSelector } from '@/lib/hooks/useAppSelector';
+import { useAppDispatch } from '@/lib/hooks/useAppDispatch';
+import SeedCard from '@/components/product/SeedCard';
+import { setPage, setLimit } from '@/lib/features/seeds/filterSlice';
 import { fetchSeeds } from '@/lib/features/seeds/seedSlice';
-import { useCart } from '@/lib/hooks/useCart';
-import { useWishlist } from '@/lib/hooks/useWishlist';
-import toast from 'react-hot-toast';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Sprout, ArrowRight, Truck, Shield, Clock, Award, Heart, ShoppingCart, Leaf, Apple, Flower, Wheat, Coffee } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  ChevronsLeft, 
+  ChevronsRight,
+  Sparkles,
+  Leaf,
+  Grid3x3,
+  List,
+  Package
+} from 'lucide-react';
 
-const categories = [
-  { name: 'শাকসবজি বীজ', nameBn: 'শাকসবজি বীজ', icon: Leaf, count: 18, value: 'সবজি' },
-  { name: 'ফলের বীজ', nameBn: 'ফলের বীজ', icon: Apple, count: 8, value: 'ফল' },
-  { name: 'মসলার বীজ', nameBn: 'মসলার বীজ', icon: Coffee, count: 6, value: 'মসলা' },
-  { name: 'ফুলের বীজ', nameBn: 'ফুলের বীজ', icon: Flower, count: 5, value: 'ফুল' },
-  { name: 'ঔষধি বীজ', nameBn: 'ঔষধি বীজ', icon: Leaf, count: 3, value: 'ঔষধি' },
-  { name: 'ধান বীজ', nameBn: 'ধান বীজ', icon: Wheat, count: 12, value: 'ধান' },
-];
-
-const featuredCategories = [
-  { name: 'বীজ', nameBn: 'বীজ', href: '/shop/seeds', icon: Sprout, color: 'from-green-500 to-emerald-500', count: 63 },
-  { name: 'চারা', nameBn: 'চারা', href: '/shop/plants', icon: Sprout, color: 'from-emerald-500 to-teal-500', count: 85 },
-  { name: 'সরঞ্জাম', nameBn: 'সরঞ্জাম', href: '/shop/tools', icon: Sprout, color: 'from-amber-500 to-orange-500', count: 45 },
-];
-
-const difficultyColor = { EASY: 'bg-green-100 text-green-700', MEDIUM: 'bg-yellow-100 text-yellow-700', HARD: 'bg-red-100 text-red-700' };
-const difficultyName = { EASY: 'সহজ', MEDIUM: 'মধ্যম', HARD: 'কঠিন' };
-
-export default function ShopHomePage() {
+export default function SeedsPage() {
   const dispatch = useAppDispatch();
-  const { addToCart, isInCart } = useCart();
-  const { isInWishlist, toggleItem } = useWishlist();
-  const { items: products, loading } = useAppSelector((state) => state.seeds);
-  const { category } = useAppSelector((state) => state.filters);
+  const { items, loading, total, pagination } = useAppSelector((state) => state.seeds);
+  const { viewMode, page, limit } = useAppSelector((state) => state.filters);
+  const [isChangingPage, setIsChangingPage] = useState(false);
 
-  useEffect(() => {
-    dispatch(fetchSeeds({ limit: 8 }));
-  }, [dispatch]);
+  // Use server-side pagination - no client-side slicing needed
+  const actualTotal = total;
+  const actualTotalPages = pagination.totalPages || Math.ceil(actualTotal / limit);
+  const currentPage = page;
+  const startItem = (currentPage - 1) * limit + 1;
+  const endItem = Math.min(currentPage * limit, actualTotal);
 
-  const handleCategoryClick = (categoryValue: string) => {
-    dispatch(fetchSeeds({ category: categoryValue, limit: 8 }));
+  console.log('Pagination Info:', {
+    totalItems: actualTotal,
+    itemsPerPage: limit,
+    currentPage,
+    totalPages: actualTotalPages,
+    startItem,
+    endItem,
+    itemsCount: items.length,
+    loading
+  });
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage === currentPage || newPage < 1 || newPage > actualTotalPages) return;
+    
+    setIsChangingPage(true);
+    dispatch(setPage(newPage));
+    // Don't slice here, let the API fetch new data
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleAddToCart = (product: any) => {
-    if (!isInCart(product.id)) {
-      addToCart({ id: product.id, name: product.name, price: product.seed_cost, image: product.image });
-      toast.success(`${product.name} কার্টে যোগ হয়েছে!`);
-    } else {
-      toast.error('পণ্যটি ইতিমধ্যে কার্টে আছে');
+  const handleLimitChange = (newLimit: number) => {
+    dispatch(setLimit(newLimit));
+    // setPage(1) is already handled in setLimit action
+  };
+
+  // Get visible page numbers with ellipsis
+  const getVisiblePages = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= actualTotalPages; i++) {
+      if (i === 1 || i === actualTotalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
+        range.push(i);
+      }
     }
+
+    range.forEach((i) => {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l !== 1) {
+          rangeWithDots.push('...');
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    });
+
+    return rangeWithDots;
   };
 
-  const handleToggleWishlist = (product: any) => {
-    toggleItem({ id: product.id, name: product.name, price: product.seed_cost, originalPrice: product.market_price, category: product.category, image: product.image });
-  };
+  // Reset isChanging when loading completes
+  useEffect(() => {
+    if (!loading && isChangingPage) {
+      setIsChangingPage(false);
+    }
+  }, [loading, isChangingPage]);
 
-  const displayProducts = products.slice(0, 8);
-
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-        
-        {/* Hero Banner */}
-        <div className="relative bg-gradient-to-r from-green-700 to-emerald-700 rounded-2xl overflow-hidden shadow-xl">
-          <div className="relative px-6 py-12 md:py-16 text-center">
-            <div className="inline-flex items-center gap-2 bg-white/20 rounded-full px-4 py-1 text-sm text-white mb-4">
-              <Award className="h-4 w-4" />
-              <span>বিশ্বাস করুন ১০,০০০+ কৃষকের</span>
-            </div>
-            <h1 className="text-2xl md:text-4xl font-bold text-white mb-3">কৃষি পণ্যের <span className="text-emerald-200">সেরা ঠিকানা</span></h1>
-            <p className="text-emerald-100 max-w-2xl mx-auto mb-6">মানসম্মত বীজ, চারা ও কৃষি সরঞ্জাম - সরাসরি আপনার দোরগোড়ায়</p>
-            <div className="flex flex-wrap justify-center gap-3">
-              <Link href="/shop/seeds" className="bg-white text-emerald-700 px-6 py-2.5 rounded-full font-semibold hover:bg-emerald-50 transition">কেনাকাটা শুরু করুন</Link>
-              <Link href="/expert-advice" className="border border-white/30 text-white px-6 py-2.5 rounded-full font-semibold hover:bg-white/10 transition">বিশেষজ্ঞ পরামর্শ</Link>
-            </div>
+  if (loading && items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 md:py-24">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-emerald-100 border-t-emerald-600"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Leaf className="h-8 w-8 text-emerald-600 animate-pulse" />
           </div>
         </div>
-
-        {/* Featured Categories */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800">জনপ্রিয় ক্যাটাগরি</h2>
-            <Link href="/shop/all" className="text-emerald-600 text-sm flex items-center gap-1">সব দেখুন <ArrowRight className="h-4 w-4" /></Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-            {featuredCategories.map((cat) => (
-              <Link key={cat.name} href={cat.href} className={`group bg-gradient-to-r ${cat.color} rounded-2xl p-6 text-white hover:shadow-xl transition hover:-translate-y-1`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <cat.icon className="h-10 w-10 mb-3 opacity-80 group-hover:scale-110 transition" />
-                    <h3 className="text-xl font-bold">{cat.nameBn}</h3>
-                    <p className="text-white/80 text-sm mt-1">{cat.count}+ পণ্য</p>
-                  </div>
-                  <ArrowRight className="h-6 w-6 opacity-0 group-hover:opacity-100 transition" />
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-
-        {/* Popular Products */}
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl md:text-2xl font-bold text-gray-800">জনপ্রিয় পণ্য</h2>
-            <Link href="/shop/all" className="text-emerald-600 text-sm flex items-center gap-1">সব দেখুন <ArrowRight className="h-4 w-4" /></Link>
-          </div>
-
-          {loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[1,2,3,4,5,6,7,8].map(i => <div key={i} className="bg-white rounded-xl p-3 animate-pulse"><div className="h-32 bg-gray-200 rounded-lg mb-2"></div><div className="h-4 bg-gray-200 rounded w-3/4"></div></div>)}
-            </div>
-          )}
-
-          {!loading && displayProducts.length > 0 && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {displayProducts.map((product) => (
-                <div key={product.id} className="bg-white rounded-xl shadow-sm hover:shadow-md transition hover:-translate-y-1 p-3 border border-gray-100 group">
-                  <Link href={`/shop/seeds/${product.seedId}`}>
-                    <div className="relative h-32 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg flex items-center justify-center mb-2 overflow-hidden">
-                      {product.image ? <Image src={product.image} alt={product.name} fill className="object-cover group-hover:scale-110 transition" /> : <Sprout className="h-12 w-12 text-green-500 group-hover:scale-110 transition" />}
-                      {product.organic_certified && <span className="absolute top-2 left-2 text-[10px] font-medium bg-green-600 text-white px-2 py-0.5 rounded-full">অর্গানিক</span>}
-                      {product.export_potential && <span className="absolute top-2 left-2 text-[10px] font-medium bg-blue-600 text-white px-2 py-0.5 rounded-full">এক্সপোর্ট</span>}
-                      <span className={`absolute bottom-2 left-2 text-[10px] font-medium px-2 py-0.5 rounded-full ${difficultyColor[product.difficulty as keyof typeof difficultyColor]}`}>
-                        {difficultyName[product.difficulty as keyof typeof difficultyName]}
-                      </span>
-                      <button onClick={(e) => { e.preventDefault(); handleToggleWishlist(product); }} className="absolute top-2 right-2 p-1 bg-white/80 rounded-full">
-                        <Heart className={`h-3.5 w-3.5 ${isInWishlist(product.id) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
-                      </button>
-                    </div>
-                    <h3 className="font-semibold text-sm line-clamp-1">{product.name}</h3>
-                    <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">{product.scientific_name}</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm font-bold text-emerald-700">৳{product.seed_cost}</span>
-                      {product.market_price > product.seed_cost && <span className="text-xs text-gray-400 line-through">৳{product.market_price}</span>}
-                    </div>
-                    <button onClick={() => handleAddToCart(product)} disabled={isInCart(product.id)} className={`w-full mt-2 py-1.5 text-xs rounded-lg transition font-medium flex items-center justify-center gap-1 ${isInCart(product.id) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}`}>
-                      <ShoppingCart className="h-3 w-3" />
-                      {isInCart(product.id) ? 'কার্টে আছে' : 'কার্টে যোগ করুন'}
-                    </button>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Benefits Section */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 bg-white rounded-2xl p-6 shadow-sm border">
-          <div className="flex items-center gap-3"><div className="p-2 bg-emerald-50 rounded-full"><Truck className="h-6 w-6 text-emerald-600" /></div><div><h4 className="font-semibold">সারা দেশে ডেলিভারি</h4><p className="text-xs text-gray-500">২৪-৪৮ ঘন্টার মধ্যে</p></div></div>
-          <div className="flex items-center gap-3"><div className="p-2 bg-emerald-50 rounded-full"><Shield className="h-6 w-6 text-emerald-600" /></div><div><h4 className="font-semibold">গুণগত মানের নিশ্চয়তা</h4><p className="text-xs text-gray-500">১০০% অরিজিনাল পণ্য</p></div></div>
-          <div className="flex items-center gap-3"><div className="p-2 bg-emerald-50 rounded-full"><Clock className="h-6 w-6 text-emerald-600" /></div><div><h4 className="font-semibold">সাপোর্ট</h4><p className="text-xs text-gray-500">সকাল ৯টা - রাত ৯টা</p></div></div>
+        <div className="mt-6 text-center">
+          <p className="text-gray-700 font-medium text-lg">বীজ লোড হচ্ছে...</p>
+          <p className="text-gray-400 text-sm mt-1">দয়া করে একটু অপেক্ষা করুন</p>
         </div>
       </div>
+    );
+  }
+
+  if (items.length === 0 && !loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 md:py-24 px-4">
+        <div className="bg-gradient-to-br from-gray-100 to-gray-200 rounded-full p-8 mb-6">
+          <Sparkles className="h-16 w-16 text-gray-400" />
+        </div>
+        <h3 className="text-2xl font-bold text-gray-800 mb-3">কোন বীজ পাওয়া যায়নি</h3>
+        <p className="text-gray-500 text-center max-w-md mb-8 leading-relaxed">
+          আপনার অনুসন্ধানের সাথে মিলে এমন কোনো বীজ খুঁজে পাওয়া যায়নি। 
+          <br />
+          অনুগ্রহ করে অন্য ক্যাটাগরি বা ফিল্টার ব্যবহার করে দেখুন।
+        </p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+        >
+          পুনরায় চেষ্টা করুন
+        </button>
+      </div>
+    );
+  }
+
+  const isChanging = loading || isChangingPage;
+  const visiblePages = getVisiblePages();
+
+  return (
+    <div className="space-y-8">
+      {/* Results Summary */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center justify-center w-12 h-12 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl shadow-lg">
+              <Package className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-gray-700 text-sm font-medium">মোট বীজ</h2>
+                <span className="bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  {actualTotal}
+                </span>
+              </div>
+              <p className="text-2xl font-bold text-gray-800 mt-1">
+                {actualTotal} <span className="text-sm font-normal text-gray-500">টি বীজ পাওয়া গেছে</span>
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                দেখানো হচ্ছে {startItem} - {endItem} (মোট {actualTotal} টির মধ্যে)
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              <div className={`p-1.5 rounded-md transition ${viewMode === 'grid' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>
+                <Grid3x3 className="h-4 w-4" />
+              </div>
+              <div className={`p-1.5 rounded-md transition ${viewMode === 'list' ? 'bg-white shadow-sm text-emerald-600' : 'text-gray-500'}`}>
+                <List className="h-4 w-4" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Loading Overlay for Page Change */}
+      {isChanging && items.length > 0 && (
+        <div className="fixed inset-0 bg-white/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-4 shadow-lg flex items-center gap-3">
+            <div className="animate-spin rounded-full h-5 w-5 border-2 border-emerald-500 border-t-transparent"></div>
+            <span className="text-sm text-gray-600">লোড হচ্ছে...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Products Grid/List */}
+      <div className={`transition-all duration-300 ${isChanging ? 'opacity-50' : 'opacity-100'}`}>
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {items.map((seed, index) => (
+              <div
+                key={seed.id}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 50}ms`, animationFillMode: 'backwards' }}
+              >
+                <SeedCard seed={seed} viewMode={viewMode} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-5">
+            {items.map((seed, index) => (
+              <div
+                key={seed.id}
+                className="animate-fade-in-up"
+                style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'backwards' }}
+              >
+                <SeedCard seed={seed} viewMode={viewMode} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {actualTotalPages > 1 && (
+        <div className="mt-10 pt-6 border-t border-gray-200">
+          <div className="flex flex-col items-center gap-6">
+            {/* Page Info Badge */}
+            <div className="bg-gradient-to-r from-emerald-50 to-green-50 px-5 py-2 rounded-full">
+              <span className="text-sm font-medium text-emerald-700">
+                পৃষ্ঠা {currentPage} / {actualTotalPages}
+              </span>
+            </div>
+
+            {/* Pagination Buttons */}
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1 || isChanging}
+                className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronsLeft className="h-4 w-4" />
+              </button>
+
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1 || isChanging}
+                className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+
+              <div className="flex gap-2 mx-2">
+                {visiblePages.map((pageNum, idx) => (
+                  pageNum === '...' ? (
+                    <span key={`dots-${idx}`} className="w-10 h-10 flex items-center justify-center text-gray-400">
+                      ...
+                    </span>
+                  ) : (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum as number)}
+                      disabled={isChanging}
+                      className={`relative w-10 h-10 rounded-xl font-semibold transition-all duration-200 ${
+                        pageNum === currentPage
+                          ? 'bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg shadow-emerald-200 scale-105'
+                          : 'border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-emerald-300'
+                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                ))}
+              </div>
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === actualTotalPages || isChanging}
+                className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+
+              <button
+                onClick={() => handlePageChange(actualTotalPages)}
+                disabled={currentPage === actualTotalPages || isChanging}
+                className="p-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                <ChevronsRight className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Page Size Selector */}
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-gray-500">প্রতি পৃষ্ঠায় দেখান:</span>
+              <div className="flex gap-2">
+                {[12, 24, 48, 96].map((size) => (
+                  <button
+                    key={size}
+                    onClick={() => handleLimitChange(size)}
+                    disabled={isChanging}
+                    className={`px-3 py-1.5 rounded-lg font-medium transition-all duration-200 ${
+                      limit === size
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  >
+                    {size}
+                  </button>
+                ))}
+              </div>
+              <span className="text-gray-400 text-xs ml-2">টি করে</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Footer Stats */}
+      {actualTotal > 0 && (
+        <div className="bg-gray-50 rounded-xl p-4 text-center">
+          <p className="text-sm text-gray-600">
+            <span className="font-semibold text-emerald-600">{actualTotal}</span> টি বীজের মধ্যে 
+            <span className="font-semibold text-emerald-600"> {endItem}</span> টি দেখানো হচ্ছে
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            মোট পৃষ্ঠা: {actualTotalPages} | বর্তমান পৃষ্ঠা: {currentPage} | প্রতি পৃষ্ঠায়: {limit}টি করে
+          </p>
+        </div>
+      )}
     </div>
   );
 }

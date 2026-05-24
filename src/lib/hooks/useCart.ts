@@ -1,7 +1,6 @@
-// hooks/useCart.ts
 'use client';
 
-import {  useAppSelector } from './useAppSelector';
+import { useAppSelector } from './useAppSelector';
 import { useAppDispatch } from './useAppDispatch';
 import { 
   addItem, 
@@ -11,16 +10,18 @@ import {
   clearCart,
   saveCartToServer,
   loadCartFromServer,
-  mergeCarts
+  mergeCarts,
+  
 } from '@/lib/features/cart/cartSlice';
 import { selectIsAuthenticated } from '@/lib/features/auth/authSlice';
 import { toast } from 'react-hot-toast';
 
-// প্রোডাক্টের টাইপ (আপনার কম্পোনেন্টের সাথে মানিয়ে নিতে)
-interface ProductType {
+// প্রোডাক্টের টাইপ
+export interface ProductType {
   id: number | string;
   name: string;
   price: number;
+  image?: string;
 }
 
 export const useCart = () => {
@@ -29,26 +30,25 @@ export const useCart = () => {
   const isAuthenticated = useAppSelector(selectIsAuthenticated);
   
   // কার্টে প্রোডাক্ট যোগ করুন
-  const addToCart = async (product: ProductType, showToast: boolean = true) => {
-    dispatch(addItem({
-      id: product.id,
-      name: product.name,
-      price: product.price,
-    }));
+  const addToCart = async (product: ProductType, quantity: number = 1, showToast: boolean = true) => {
+    // Add item for each quantity
+    for (let i = 0; i < quantity; i++) {
+      dispatch(addItem({
+        id: product.id,
+        name: product.name,
+        price: product.price,
+      }));
+    }
     
     // অথেন্টিকেটেড ইউজার হলে সরাসরি সার্ভারে সেভ করুন
     if (isAuthenticated) {
       const updatedCart = {
-        ...cart,
-        items: [...cart.items, { 
-          id: product.id, 
-          name: product.name, 
-          price: product.price, 
-          quantity: 1, 
-          totalPrice: product.price 
-        }],
-        totalQuantity: cart.totalQuantity + 1,
-        totalPrice: cart.totalPrice + product.price,
+        items: cart.items,
+        totalQuantity: cart.totalQuantity + quantity,
+        totalPrice: cart.totalPrice + (product.price * quantity),
+        loading: false,
+        error: null,
+        isSynced: false,
       };
       await dispatch(saveCartToServer(updatedCart));
     }
@@ -67,11 +67,19 @@ export const useCart = () => {
     dispatch(removeItem(id));
     
     if (isAuthenticated) {
-      await dispatch(saveCartToServer(cart));
+      const updatedCart = {
+        items: cart.items.filter(item => item.id !== id),
+        totalQuantity: cart.totalQuantity - (cart.items.find(item => item.id === id)?.quantity || 0),
+        totalPrice: cart.totalPrice - (cart.items.find(item => item.id === id)?.totalPrice || 0),
+        loading: false,
+        error: null,
+        isSynced: false,
+      };
+      await dispatch(saveCartToServer(updatedCart));
     }
     
     if (showToast) {
-      toast.error('পণ্য কার্ট থেকে সরানো হয়েছে', {
+      toast.success('পণ্য কার্ট থেকে সরানো হয়েছে', {
         duration: 2000,
         position: 'bottom-right',
       });
@@ -83,9 +91,16 @@ export const useCart = () => {
     dispatch(increaseQuantity(id));
     
     if (isAuthenticated) {
-      // একটু delay দিয়ে সেভ করুন যাতে একাধিক কল না হয়
       setTimeout(async () => {
-        await dispatch(saveCartToServer(cart));
+        const updatedCart = {
+          items: cart.items,
+          totalQuantity: cart.totalQuantity,
+          totalPrice: cart.totalPrice,
+          loading: false,
+          error: null,
+          isSynced: false,
+        };
+        await dispatch(saveCartToServer(updatedCart));
       }, 500);
     }
   };
@@ -96,7 +111,15 @@ export const useCart = () => {
     
     if (isAuthenticated) {
       setTimeout(async () => {
-        await dispatch(saveCartToServer(cart));
+        const updatedCart = {
+          items: cart.items,
+          totalQuantity: cart.totalQuantity,
+          totalPrice: cart.totalPrice,
+          loading: false,
+          error: null,
+          isSynced: false,
+        };
+        await dispatch(saveCartToServer(updatedCart));
       }, 500);
     }
   };
@@ -106,11 +129,19 @@ export const useCart = () => {
     dispatch(clearCart());
     
     if (isAuthenticated) {
-      await dispatch(saveCartToServer(cart));
+      const emptyCart = {
+        items: [],
+        totalQuantity: 0,
+        totalPrice: 0,
+        loading: false,
+        error: null,
+        isSynced: false,
+      };
+      await dispatch(saveCartToServer(emptyCart));
     }
     
     if (showToast) {
-      toast.error('কার্ট খালি করা হয়েছে', {
+      toast.success('কার্ট খালি করা হয়েছে', {
         duration: 2000,
         position: 'bottom-right',
       });
@@ -137,13 +168,18 @@ export const useCart = () => {
   const syncCartWithServer = async () => {
     if (isAuthenticated) {
       try {
-        await dispatch(mergeCarts()).unwrap();
+        const result = await dispatch(mergeCarts()).unwrap();
         toast.success('কার্ট সিঙ্ক হয়েছে!', {
           duration: 2000,
           position: 'bottom-right',
         });
+        return result;
       } catch (error) {
         console.error('Cart sync failed:', error);
+        toast.error('কার্ট সিঙ্ক ব্যর্থ হয়েছে', {
+          duration: 2000,
+          position: 'bottom-right',
+        });
       }
     }
   };

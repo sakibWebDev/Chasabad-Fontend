@@ -79,6 +79,10 @@ const filterSlice = createSlice({
     setPage: (state, action: PayloadAction<number>) => {
       state.page = action.payload;
     },
+    setLimit: (state, action: PayloadAction<number>) => {
+      state.limit = action.payload;
+      state.page = 1;
+    },
     setViewMode: (state, action: PayloadAction<'grid' | 'list'>) => {
       state.viewMode = action.payload;
     },
@@ -92,6 +96,7 @@ const filterSlice = createSlice({
       state.exportPotential = false;
       state.search = '';
       state.page = 1;
+      state.limit = 12;
     },
   },
 });
@@ -106,6 +111,7 @@ export const {
   setSearch,
   setSortBy,
   setPage,
+  setLimit,
   setViewMode,
   resetFilters,
 } = filterSlice.actions;
