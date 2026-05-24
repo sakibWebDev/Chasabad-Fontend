@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
@@ -17,13 +17,16 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  // Fixed: Initialize passwordStrength with empty string
   const [passwordStrength, setPasswordStrength] = useState('');
 
   useEffect(() => {
-    if (!token) {
+    // Only set error if token is missing and no error has been set yet
+    if (!token && !error) {
       setError('ইনভ্যালিড বা মেয়াদোত্তীর্ণ রিসেট লিংক');
     }
-  }, [token]);
+  }, [token, error]); // Added error to dependencies to prevent infinite loops
 
   const checkPasswordStrength = (pass: string) => {
     if (pass.length === 0) return '';
