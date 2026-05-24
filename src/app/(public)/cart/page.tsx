@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Tag, CreditCard, Truck, Shield } from 'lucide-react';
 import { useAppDispatch } from '@/lib/hooks/useAppDispatch';
-import {  useAppSelector } from '@/lib/hooks/useAppSelector';
+import { useAppSelector } from '@/lib/hooks/useAppSelector';
 import { increaseQuantity, decreaseQuantity, removeItem, clearCart } from '@/lib/features/cart/cartSlice';
 import toast from 'react-hot-toast';
 
@@ -30,7 +30,7 @@ export default function CartPage() {
     setCouponCode('');
   };
 
-  // কোয়ান্টিটি আপডেট
+  // কোয়ান্টিটি আপডেট - Fixed: Now accepts number type only
   const handleIncrease = (id: number) => {
     dispatch(increaseQuantity(id));
   };
@@ -135,7 +135,7 @@ export default function CartPage() {
                         </p>
                       </div>
                       <button
-                        onClick={() => handleRemove(item.id, item.name)}
+                        onClick={() => handleRemove(Number(item.id), item.name)}
                         className="text-red-500 hover:text-red-600 transition p-1"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -146,7 +146,7 @@ export default function CartPage() {
                     <div className="flex items-center justify-between mt-4">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleDecrease(item.id)}
+                          onClick={() => handleDecrease(Number(item.id))}
                           className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                           disabled={item.quantity <= 1}
                         >
@@ -156,7 +156,7 @@ export default function CartPage() {
                           {item.quantity}
                         </span>
                         <button
-                          onClick={() => handleIncrease(item.id)}
+                          onClick={() => handleIncrease(Number(item.id))}
                           className="p-1.5 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                         >
                           <Plus className="h-4 w-4" />
