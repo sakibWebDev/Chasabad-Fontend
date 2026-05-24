@@ -3,20 +3,22 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import Image from 'next/image';
+
 import Link from 'next/link';
 import { 
   Star, ShoppingCart, Heart, Truck, Shield, Clock, 
-  Sprout, Droplet, Tractor, Leaf, ChevronRight,
+  Sprout, Droplet, Tractor, ChevronRight,
   CheckCircle, Minus, Plus, Package, RotateCcw,
   Share2, MessageCircle, AlertCircle, Thermometer,
-  Droplets, Sun, Wind, Ruler, Calendar, MapPin
+  Sun, Calendar, 
 } from 'lucide-react';
 import { AppDispatch, RootState } from '@/lib/store/store';
-import { fetchSeedById, clearSelectedSeed, Seed } from '@/lib/features/seeds/seedSlice';
+import { fetchSeedById, clearSelectedSeed, } from '@/lib/features/seeds/seedSlice';
 import { useCart } from '@/lib/hooks/useCart';
 import { useWishlist } from '@/lib/hooks/useWishlist';
-import toast from 'react-hot-toast';
+import { addItem, removeItem } from '@/lib/features/cart/cartSlice';
+
+
 
 // Helper function to map difficulty to Bangla
 const getDifficultyText = (difficulty: string) => {
@@ -141,21 +143,21 @@ export default function ProductDetailsPage() {
     }, quantity, false);
     router.push('/checkout');
   };
-  
-  const handleToggleWishlist = async () => {
-    if (!product) return;
-    
-    if (isInWishlist(product.id )) {
-      await removeFromWishlist(product.id);
-    } else {
-      await addToWishlist({
-        id: product.id,
-        name: product.name,
-        price: product.market_price || product.seed_cost || 0,
-        image: product.image,
-      });
-    }
-  };
+const handleToggleWishlist = async () => {
+  if (!product) return;
+
+  const productId = Number(product.id);
+
+  if (isInWishlist(productId)) {
+    removeItem(productId);
+  } else {
+    addItem({
+      id: productId,
+      name: product.name,
+      price: product.market_price || product.seed_cost || 0
+    });
+  }
+};
   
   const updateQuantity = (newQuantity: number) => {
     if (newQuantity >= 1 && newQuantity <= 99) {
@@ -291,7 +293,7 @@ export default function ProductDetailsPage() {
               </div>
               
               <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
-                {product?.special_notes || product?.description || `${product?.name} - উচ্চ মানের বীজ যা থেকে ভালো ফলন পাওয়া যায়।`}
+                {product?.special_notes || `${product?.name} - উচ্চ মানের বীজ যা থেকে ভালো ফলন পাওয়া যায়।`}
               </p>
               
               {/* Key Specifications */}
@@ -368,7 +370,7 @@ export default function ProductDetailsPage() {
                   onClick={handleToggleWishlist}
                   className="p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition"
                 >
-                  <Heart className={`h-5 w-5 ${isInWishlist(product?.id || '') ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
+                  <Heart className={`h-5 w-5 ${isInWishlist(Number(product?.id)) ? 'fill-red-500 text-red-500' : 'text-gray-500'}`} />
                 </button>
                 <button className="p-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition">
                   <Share2 className="h-5 w-5 text-gray-500" />
@@ -433,7 +435,7 @@ export default function ProductDetailsPage() {
                 <div>
                   <h3 className="text-lg font-semibold mb-3">পণ্যের বিবরণ</h3>
                   <p className="text-gray-600 leading-relaxed">
-                    {product?.special_notes || product?.description || `${product?.name} একটি উন্নত মানের বীজ যা থেকে ভালো ফলন পাওয়া যায়।`}
+                    {product?.special_notes || `${product?.name} একটি উন্নত মানের বীজ যা থেকে ভালো ফলন পাওয়া যায়।`}
                   </p>
                 </div>
                 

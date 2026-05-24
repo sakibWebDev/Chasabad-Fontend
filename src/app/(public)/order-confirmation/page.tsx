@@ -566,7 +566,7 @@ export default function OrderConfirmationPage() {
                         </div>
                         <div>
                           <p className="text-sm text-gray-500">ইমেইল</p>
-                          <p className="font-medium text-gray-900 dark:text-white break-all">{order.user?.email || order.customerEmail}</p>
+                          <p className="font-medium text-gray-900 dark:text-white break-all">{order.user?.email}</p>
                         </div>
                       </div>
                     )}
@@ -652,7 +652,7 @@ export default function OrderConfirmationPage() {
               হোম পেজে যান
             </button>
           </Link>
-          <Link href="/shop/all">
+          <Link href="/shop">
             <button className="flex items-center gap-2 px-6 py-3 border-2 border-green-600 text-green-600 rounded-xl font-medium hover:bg-green-50 transition w-full sm:w-auto">
               <ShoppingBag className="h-4 w-4" />
               আরও কেনাকাটা করুন
