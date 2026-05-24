@@ -559,7 +559,7 @@ export default function OrderConfirmationPage() {
                       </div>
                     </div>
                     
-                    {(order.user?.email || order.customerEmail) && (
+                    {(order.user?.email ) && (
                       <div className="flex items-start gap-3">
                         <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                           <Mail className="h-4 w-4 text-green-600" />
