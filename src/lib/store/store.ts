@@ -8,6 +8,7 @@ import filterReducer from "../features/seeds/filterSlice";
 import  countReducer from "../features/seeds/countSlice";
 import seasonReducer from "../features/season/seasonSlice";
 import orderReducer from "../features/order/orderSlice";
+import reviewReducer from "../features/review/reviewSlice";
 
 
 export const store = configureStore({
@@ -21,6 +22,7 @@ export const store = configureStore({
     counts: countReducer,
     seasons: seasonReducer,
     order: orderReducer,
+    review: reviewReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
