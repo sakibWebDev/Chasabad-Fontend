@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, Star, Download, Search, ChevronLeft, ChevronRight, Package, Trophy, TrendingUp } from 'lucide-react';
+import { CheckCircle, Star,  Search, ChevronLeft, ChevronRight, Package, } from 'lucide-react';
 import { Order } from '@/types';
 import toast from 'react-hot-toast';
 import { useAppDispatch } from '@/lib/hooks/useAppDispatch';
@@ -33,8 +33,8 @@ export default function DeliveredOrdersPage() {
   // Further filter based on search term
   const filteredOrders = deliveredOrders.filter(order => 
     order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.user?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.user?.email.toLowerCase().includes(searchTerm.toLowerCase())
+    order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   // Pagination for filtered results
@@ -46,15 +46,19 @@ export default function DeliveredOrdersPage() {
 
   const statsData = {
     total: stats?.deliveredOrders || 0,
-    totalRevenue: deliveredOrders.reduce((s, o) => s + o.total_amount, 0),
+    totalRevenue: deliveredOrders.reduce((s, o) => s + (o.total_amount || 0), 0),
     averageOrder: deliveredOrders.length > 0 
-      ? deliveredOrders.reduce((s, o) => s + o.total_amount, 0) / deliveredOrders.length 
+      ? deliveredOrders.reduce((s, o) => s + (o.total_amount || 0), 0) / deliveredOrders.length 
       : 0
   };
 
-  // Helper function to get total items count
+  // Helper function to get total items count with safe checking
   const getTotalItems = (order: Order) => {
-    return order.items.reduce((total, item) => total + item.quantity, 0);
+    if (!order.items || !Array.isArray(order.items)) return 0;
+    return order.items.reduce((total, item) => {
+      const quantity = item?.quantity || 0;
+      return total + quantity;
+    }, 0);
   };
 
   return (
@@ -140,10 +144,10 @@ export default function DeliveredOrdersPage() {
                       <div className="text-xs text-gray-400">{order.user?.phone || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{getTotalItems(order)} item(s)</span>
+                      <span className="text-sm text-gray-600">{getTotalItems(order as any)} item(s)</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="font-semibold text-green-600">৳{order.total_amount.toLocaleString()}</span>
+                      <span className="font-semibold text-green-600">৳{order.total_amount?.toLocaleString() || 0}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(order.updatedAt || order.createdAt).toLocaleDateString()}
