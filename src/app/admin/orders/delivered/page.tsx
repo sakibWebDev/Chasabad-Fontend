@@ -2,8 +2,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CheckCircle, Star,  Search, ChevronLeft, ChevronRight, Package, } from 'lucide-react';
-import { Order } from '@/types';
+import { CheckCircle, Search, ChevronLeft, ChevronRight, Package } from 'lucide-react';
+// import { Order } from '@/lib/features/order/order.types';
+import { ReduxOrder, toPlainOrder } from '@/lib/features/order/helpers';
 import toast from 'react-hot-toast';
 import { useAppDispatch } from '@/lib/hooks/useAppDispatch';
 import { useAppSelector } from '@/lib/hooks/useAppSelector';
@@ -18,27 +19,26 @@ export default function DeliveredOrdersPage() {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    // Fetch only delivered orders
     dispatch(getAllOrders({ 
       page: currentPage, 
       limit: itemsPerPage, 
       status: 'DELIVERED' 
     }));
     dispatch(getOrderStats());
-  }, [dispatch, currentPage, itemsPerPage]);
+  }, [dispatch, currentPage]);
 
-  // Filter delivered orders
-  const deliveredOrders = orders.filter(order => order.status === 'DELIVERED');
-  
-  // Further filter based on search term
-  const filteredOrders = deliveredOrders.filter(order => 
-    order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.user?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Type-safe filtering - treat orders as ReduxOrder[]
+  const deliveredOrders = (orders as ReduxOrder[]).filter(order => 
+    order.status === 'DELIVERED'
   );
+  
+  const filteredOrders = deliveredOrders.filter(order => {
+    const searchLower = searchTerm.toLowerCase();
+    return order.orderId.toLowerCase().includes(searchLower) ||
+      order.user?.name?.toLowerCase().includes(searchLower) ||
+      order.user?.email?.toLowerCase().includes(searchLower);
+  });
 
-  // Pagination for filtered results
-  const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -46,37 +46,27 @@ export default function DeliveredOrdersPage() {
 
   const statsData = {
     total: stats?.deliveredOrders || 0,
-    totalRevenue: deliveredOrders.reduce((s, o) => s + (o.total_amount || 0), 0),
+    totalRevenue: deliveredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0),
     averageOrder: deliveredOrders.length > 0 
-      ? deliveredOrders.reduce((s, o) => s + (o.total_amount || 0), 0) / deliveredOrders.length 
+      ? deliveredOrders.reduce((sum, order) => sum + (order.total_amount || 0), 0) / deliveredOrders.length 
       : 0
   };
 
-  // Helper function to get total items count with safe checking
-  const getTotalItems = (order: Order) => {
+  const getTotalItems = (order: ReduxOrder) => {
     if (!order.items || !Array.isArray(order.items)) return 0;
-    return order.items.reduce((total, item) => {
-      const quantity = item?.quantity || 0;
-      return total + quantity;
-    }, 0);
+    return order.items.reduce((total, item) => total + (item?.quantity || 0), 0);
+  };
+
+  const handleViewOrder = (order: ReduxOrder) => {
+    const plainOrder = toPlainOrder(order);
+    toast.success(`Viewing details for ${plainOrder.orderId}`);
+    // Navigate to order details or open modal
   };
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-green-100 rounded-lg">
-            <CheckCircle className="h-6 w-6 text-green-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Delivered Orders</h1>
-            <p className="text-gray-600">Successfully completed orders</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
           <p className="text-sm opacity-90">Total Delivered</p>
           <p className="text-3xl font-bold">{statsData.total}</p>
@@ -89,12 +79,6 @@ export default function DeliveredOrdersPage() {
           <p className="text-sm text-gray-500">Average Order Value</p>
           <p className="text-2xl font-bold">৳{Math.round(statsData.averageOrder).toLocaleString()}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Customer Rating</p>
-          <p className="text-2xl font-bold flex items-center gap-1">
-            4.8 <Star className="h-5 w-5 text-yellow-400 fill-current" />
-          </p>
-        </div>
       </div>
 
       {/* Search */}
@@ -103,7 +87,7 @@ export default function DeliveredOrdersPage() {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
-            placeholder="Search delivered orders by ID or customer name..."
+            placeholder="Search delivered orders..."
             className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
             value={searchTerm}
             onChange={(e) => {
@@ -124,17 +108,17 @@ export default function DeliveredOrdersPage() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Items</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Delivered On</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Delivered On</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={order.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-medium text-gray-900">{order.orderId}</span>
                     </td>
@@ -144,7 +128,7 @@ export default function DeliveredOrdersPage() {
                       <div className="text-xs text-gray-400">{order.user?.phone || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-gray-600">{getTotalItems(order as any)} item(s)</span>
+                      <span className="text-sm text-gray-600">{getTotalItems(order)} items</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="font-semibold text-green-600">৳{order.total_amount?.toLocaleString() || 0}</span>
@@ -154,7 +138,7 @@ export default function DeliveredOrdersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button 
-                        onClick={() => toast.success(`Viewing details for ${order.orderId}`)}
+                        onClick={() => handleViewOrder(order)}
                         className="text-blue-600 hover:text-blue-800 transition-colors"
                       >
                         <CheckCircle className="h-5 w-5" />
@@ -174,22 +158,22 @@ export default function DeliveredOrdersPage() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {Math.ceil(filteredOrders.length / itemsPerPage) > 1 && (
             <div className="flex justify-center gap-2 mt-6">
               <button
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
                 disabled={currentPage === 1}
-                className="px-3 py-1 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                className="px-3 py-1 border rounded-lg disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
               <span className="px-3 py-1">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {Math.ceil(filteredOrders.length / itemsPerPage)}
               </span>
               <button
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-                className="px-3 py-1 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                onClick={() => setCurrentPage(p => Math.min(p + 1, Math.ceil(filteredOrders.length / itemsPerPage)))}
+                disabled={currentPage === Math.ceil(filteredOrders.length / itemsPerPage)}
+                className="px-3 py-1 border rounded-lg disabled:opacity-50"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>

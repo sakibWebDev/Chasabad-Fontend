@@ -1,7 +1,7 @@
 // store/slices/orderSlice.ts
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, PayloadAction, Draft } from '@reduxjs/toolkit';
 import { orderApi } from './order.api';
-import { Order, OrdersState, CreateOrderInput } from './order.types';
+import { OrdersState, CreateOrderInput, Order } from './order.types';
 import toast from 'react-hot-toast';
 
 const initialState: OrdersState = {
@@ -42,7 +42,7 @@ export const createOrder = createAsyncThunk(
       const response = await orderApi.createOrder(orderData);
       if (response.success) {
         toast.success(response.message || 'অর্ডার সফলভাবে সম্পন্ন হয়েছে!');
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -60,7 +60,13 @@ export const getAllOrders = createAsyncThunk(
     try {
       const response = await orderApi.getAllOrders(page, limit, status);
       if (response.success) {
-        return response.data;
+        return {
+          orders: response.data.orders as Order[],
+          total: response.data.total,
+          page: response.data.page,
+          totalPages: response.data.totalPages,
+          limit: response.data.limit,
+        };
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -76,7 +82,7 @@ export const getUserOrders = createAsyncThunk(
     try {
       const response = await orderApi.getUserOrders();
       if (response.success) {
-        return response.data;
+        return response.data as Order[];
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -92,7 +98,7 @@ export const getOrderById = createAsyncThunk(
     try {
       const response = await orderApi.getOrderById(id);
       if (response.success) {
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -108,7 +114,7 @@ export const getOrderByOrderId = createAsyncThunk(
     try {
       const response = await orderApi.getOrderByOrderId(orderId);
       if (response.success) {
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -125,7 +131,7 @@ export const updateOrderStatus = createAsyncThunk(
       const response = await orderApi.updateOrderStatus(id, status);
       if (response.success) {
         toast.success(`Order status updated to ${status}`);
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -144,7 +150,7 @@ export const updatePaymentStatus = createAsyncThunk(
       const response = await orderApi.updatePaymentStatus(id, paymentStatus);
       if (response.success) {
         toast.success(`Payment status updated to ${paymentStatus}`);
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -163,7 +169,7 @@ export const updateTrackingNumber = createAsyncThunk(
       const response = await orderApi.updateTrackingNumber(id, trackingNumber);
       if (response.success) {
         toast.success('Tracking number updated successfully');
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -182,7 +188,7 @@ export const cancelOrder = createAsyncThunk(
       const response = await orderApi.cancelOrder(id);
       if (response.success) {
         toast.success('Order cancelled successfully');
-        return response.data;
+        return response.data as Order;
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -235,7 +241,7 @@ export const searchOrders = createAsyncThunk(
     try {
       const response = await orderApi.searchOrders(searchTerm);
       if (response.success) {
-        return response.data;
+        return response.data as Order[];
       }
       return rejectWithValue(response.message);
     } catch (error: any) {
@@ -259,6 +265,17 @@ export const getMonthlyRevenue = createAsyncThunk(
     }
   }
 );
+
+// ============ Helper functions for type-safe state updates ============
+
+// Helper to update an order in the orders array
+const updateOrderInArray = (orders: (Order | Draft<Order>)[], updatedOrder: Order | Draft<Order>) => {
+  const index = orders.findIndex(o => o.id === updatedOrder.id);
+  if (index !== -1) {
+    orders[index] = updatedOrder as any;
+  }
+  return orders;
+};
 
 // ============ Slice ============
 
@@ -294,8 +311,8 @@ const orderSlice = createSlice({
       })
       .addCase(createOrder.fulfilled, (state, action) => {
         state.loading.create = false;
-        state.currentOrder = action.payload;
-        state.orders.unshift(action.payload);
+        state.currentOrder = action.payload as any;
+        state.orders.unshift(action.payload as any);
       })
       .addCase(createOrder.rejected, (state, action) => {
         state.loading.create = false;
@@ -310,7 +327,7 @@ const orderSlice = createSlice({
       })
       .addCase(getAllOrders.fulfilled, (state, action) => {
         state.loading.list = false;
-        state.orders = action.payload.orders;
+        state.orders = action.payload.orders as any;
         state.pagination = {
           total: action.payload.total,
           page: action.payload.page,
@@ -331,7 +348,7 @@ const orderSlice = createSlice({
       })
       .addCase(getUserOrders.fulfilled, (state, action) => {
         state.loading.list = false;
-        state.orders = action.payload;
+        state.orders = action.payload as any;
       })
       .addCase(getUserOrders.rejected, (state, action) => {
         state.loading.list = false;
@@ -346,7 +363,7 @@ const orderSlice = createSlice({
       })
       .addCase(getOrderById.fulfilled, (state, action) => {
         state.loading.detail = false;
-        state.currentOrder = action.payload;
+        state.currentOrder = action.payload as any;
       })
       .addCase(getOrderById.rejected, (state, action) => {
         state.loading.detail = false;
@@ -361,7 +378,7 @@ const orderSlice = createSlice({
       })
       .addCase(getOrderByOrderId.fulfilled, (state, action) => {
         state.loading.detail = false;
-        state.currentOrder = action.payload;
+        state.currentOrder = action.payload as any;
       })
       .addCase(getOrderByOrderId.rejected, (state, action) => {
         state.loading.detail = false;
@@ -378,10 +395,10 @@ const orderSlice = createSlice({
         state.loading.update = false;
         const index = state.orders.findIndex(o => o.id === action.payload.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = action.payload as any;
         }
         if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+          state.currentOrder = action.payload as any;
         }
       })
       .addCase(updateOrderStatus.rejected, (state, action) => {
@@ -394,10 +411,10 @@ const orderSlice = createSlice({
       .addCase(updatePaymentStatus.fulfilled, (state, action) => {
         const index = state.orders.findIndex(o => o.id === action.payload.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = action.payload as any;
         }
         if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+          state.currentOrder = action.payload as any;
         }
       });
 
@@ -406,10 +423,10 @@ const orderSlice = createSlice({
       .addCase(updateTrackingNumber.fulfilled, (state, action) => {
         const index = state.orders.findIndex(o => o.id === action.payload.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = action.payload as any;
         }
         if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+          state.currentOrder = action.payload as any;
         }
       });
 
@@ -418,17 +435,17 @@ const orderSlice = createSlice({
       .addCase(cancelOrder.fulfilled, (state, action) => {
         const index = state.orders.findIndex(o => o.id === action.payload.id);
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          state.orders[index] = action.payload as any;
         }
         if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+          state.currentOrder = action.payload as any;
         }
       });
 
     // ===== Delete Order =====
     builder
       .addCase(deleteOrder.fulfilled, (state, action) => {
-        state.orders = state.orders.filter(o => o.id !== action.payload);
+        state.orders = state.orders.filter(o => o.id !== action.payload) as any;
         if (state.currentOrder?.id === action.payload) {
           state.currentOrder = null;
         }
@@ -452,7 +469,7 @@ const orderSlice = createSlice({
     // ===== Search Orders =====
     builder
       .addCase(searchOrders.fulfilled, (state, action) => {
-        state.orders = action.payload;
+        state.orders = action.payload as any;
       });
   },
 });
