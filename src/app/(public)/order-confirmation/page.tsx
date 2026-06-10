@@ -1,6 +1,7 @@
 // app/(public)/order-confirmation/page.tsx
 'use client';
 
+import { Suspense } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -15,7 +16,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-export default function OrderConfirmationPage() {
+function OrderConfirmationContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -559,7 +560,7 @@ export default function OrderConfirmationPage() {
                       </div>
                     </div>
                     
-                    {(order.user?.email ) && (
+                    {(order.user?.email) && (
                       <div className="flex items-start gap-3">
                         <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                           <Mail className="h-4 w-4 text-green-600" />
@@ -607,8 +608,8 @@ export default function OrderConfirmationPage() {
                   <h3 className="font-bold text-blue-800 dark:text-blue-300">সাহায্য প্রয়োজন?</h3>
                 </div>
                 <p className="text-sm text-blue-700 dark:text-blue-400 mb-4">
-                                  আপনার অর্ডার নিয়ে কোনো সমস্যা হলে আমাদের সাপোর্ট টিম ২৪/৭ সময় উপলব্ধ।
-                                </p>
+                  আপনার অর্ডার নিয়ে কোনো সমস্যা হলে আমাদের সাপোর্ট টিম ২৪/৭ সময় উপলব্ধ।
+                </p>
                 <div className="flex gap-3">
                   <Link href="/support" className="flex-1">
                     <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition">
@@ -667,5 +668,26 @@ export default function OrderConfirmationPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback
+function OrderConfirmationLoading() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-12 h-12 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-gray-600">Loading order details...</p>
+      </div>
+    </div>
+  );
+}
+
+// Page component with Suspense boundary (default export)
+export default function OrderConfirmationPage() {
+  return (
+    <Suspense fallback={<OrderConfirmationLoading />}>
+      <OrderConfirmationContent />
+    </Suspense>
   );
 }

@@ -9,6 +9,7 @@ interface CartItem {
   price: number;
   quantity: number;
   totalPrice: number;
+  image?: string;
 }
 
 interface CartState {
@@ -21,7 +22,8 @@ interface CartState {
 }
 
 // লোকাল স্টোরেজ থেকে কার্ট লোড করার ফাংশন
-const loadCartFromLocalStorage = (): CartState | null => {
+const loadCartFromLocalStorage = (): Partial<CartState> | null => {
+  if (typeof window === 'undefined') return null; // SSR guard
   try {
     const serializedCart = localStorage.getItem('localCart');
     if (serializedCart === null) return null;
@@ -33,7 +35,8 @@ const loadCartFromLocalStorage = (): CartState | null => {
 };
 
 // লোকাল স্টোরেজে কার্ট সেভ করার ফাংশন
-const saveCartToLocalStorage = (cart: CartState) => {
+const saveCartToLocalStorage = (cart: Partial<CartState>) => {
+  if (typeof window === 'undefined') return; // SSR guard
   try {
     const serializedCart = JSON.stringify({
       items: cart.items,
@@ -48,6 +51,7 @@ const saveCartToLocalStorage = (cart: CartState) => {
 
 // লোকাল কার্ট ক্লিয়ার করার ফাংশন
 const clearLocalCart = () => {
+  if (typeof window === 'undefined') return; // SSR guard
   localStorage.removeItem('localCart');
 };
 
@@ -105,9 +109,11 @@ export const mergeCarts = createAsyncThunk(
 // প্রাথমিক স্টেট (লোকাল স্টোরেজ থেকে লোড)
 const getInitialState = (): CartState => {
   const localCart = loadCartFromLocalStorage();
-  if (localCart) {
+  if (localCart && localCart.items) {
     return {
-      ...localCart,
+      items: localCart.items,
+      totalQuantity: localCart.totalQuantity || 0,
+      totalPrice: localCart.totalPrice || 0,
       loading: false,
       error: null,
       isSynced: false,
@@ -144,6 +150,7 @@ const cartSlice = createSlice({
           price: newItem.price,
           quantity: 1,
           totalPrice: newItem.price,
+          image: newItem.image,
         });
         state.totalQuantity++;
       }
@@ -231,7 +238,34 @@ const cartSlice = createSlice({
       state.items = action.payload.items;
       state.totalQuantity = action.payload.totalQuantity;
       state.totalPrice = action.payload.totalPrice;
+      state.isSynced = false;
       saveCartToLocalStorage(state);
+    },
+    
+    // আইটেমের কোয়ান্টিটি সেট করুন
+    setItemQuantity: (state, action: PayloadAction<{ id: number | string; quantity: number }>) => {
+      const { id, quantity } = action.payload;
+      const item = state.items.find((item: CartItem) => item.id === id);
+      
+      if (item && quantity > 0) {
+        const oldTotalPrice = item.totalPrice;
+        item.quantity = quantity;
+        item.totalPrice = item.price * quantity;
+        state.totalPrice = state.totalPrice - oldTotalPrice + item.totalPrice;
+        state.isSynced = false;
+        
+        // লোকাল স্টোরেজে সেভ করুন
+        saveCartToLocalStorage(state);
+      } else if (item && quantity <= 0) {
+        // Remove item if quantity is 0 or less
+        state.totalQuantity--;
+        state.totalPrice -= item.totalPrice;
+        state.items = state.items.filter((item: CartItem) => item.id !== id);
+        state.isSynced = false;
+        
+        // লোকাল স্টোরেজে সেভ করুন
+        saveCartToLocalStorage(state);
+      }
     },
   },
   extraReducers: (builder) => {
@@ -258,9 +292,11 @@ const cartSlice = createSlice({
       })
       .addCase(loadCartFromServer.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.items || [];
-        state.totalQuantity = action.payload.totalQuantity || 0;
-        state.totalPrice = action.payload.totalPrice || 0;
+        if (action.payload) {
+          state.items = action.payload.items || [];
+          state.totalQuantity = action.payload.totalQuantity || 0;
+          state.totalPrice = action.payload.totalPrice || 0;
+        }
         state.isSynced = true;
         state.error = null;
         
@@ -275,13 +311,17 @@ const cartSlice = createSlice({
       // কার্ট মার্জ করা
       .addCase(mergeCarts.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(mergeCarts.fulfilled, (state, action) => {
         state.loading = false;
-        state.items = action.payload.items || [];
-        state.totalQuantity = action.payload.totalQuantity || 0;
-        state.totalPrice = action.payload.totalPrice || 0;
+        if (action.payload) {
+          state.items = action.payload.items || [];
+          state.totalQuantity = action.payload.totalQuantity || 0;
+          state.totalPrice = action.payload.totalPrice || 0;
+        }
         state.isSynced = true;
+        state.error = null;
         
         // লোকাল স্টোরেজ আপডেট করুন
         saveCartToLocalStorage(state);
@@ -301,6 +341,7 @@ export const {
   clearCart,
   setCartSynced,
   restoreLocalCart,
+  setItemQuantity,
 } = cartSlice.actions;
 
 export default cartSlice.reducer;

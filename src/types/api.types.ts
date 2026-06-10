@@ -1,4 +1,5 @@
 // API Response Wrapper
+import { Seed } from '@/lib/features/seeds/seedSlice';
 export interface ApiResponse<T = any> {
   success: boolean;
   message: string;

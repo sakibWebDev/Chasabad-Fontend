@@ -1,11 +1,13 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useState, FormEvent, useEffect, ChangeEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Lock, Eye, EyeOff, CheckCircle, AlertCircle } from 'lucide-react';
 
-const ResetPassword = () => {
+// Inner component that uses useSearchParams
+const ResetPasswordContent = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
@@ -17,16 +19,16 @@ const ResetPassword = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState('');
-
-  // Fixed: Initialize passwordStrength with empty string
   const [passwordStrength, setPasswordStrength] = useState('');
 
   useEffect(() => {
-    // Only set error if token is missing and no error has been set yet
     if (!token && !error) {
       setError('ইনভ্যালিড বা মেয়াদোত্তীর্ণ রিসেট লিংক');
     }
-  }, [token, error]); // Added error to dependencies to prevent infinite loops
+  }, [token, error]);
+
+  // ... rest of the component logic (handleSubmit, checkPasswordStrength, etc.)
+  // Keep everything exactly the same, just move it inside ResetPasswordContent
 
   const checkPasswordStrength = (pass: string) => {
     if (pass.length === 0) return '';
@@ -38,14 +40,10 @@ const ResetPassword = () => {
 
   const getStrengthColor = () => {
     switch (passwordStrength) {
-      case 'দুর্বল':
-        return 'bg-red-500';
-      case 'মাঝারি':
-        return 'bg-yellow-500';
-      case 'শক্তিশালী':
-        return 'bg-green-500';
-      default:
-        return 'bg-gray-200';
+      case 'দুর্বল': return 'bg-red-500';
+      case 'মাঝারি': return 'bg-yellow-500';
+      case 'শক্তিশালী': return 'bg-green-500';
+      default: return 'bg-gray-200';
     }
   };
 
@@ -82,9 +80,6 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      // এখানে আপনার API কল হবে
-      // await resetPasswordAPI({ token, password });
-      
       await new Promise(resolve => setTimeout(resolve, 1500));
       setIsSubmitted(true);
     } catch (err) {
@@ -103,15 +98,12 @@ const ResetPassword = () => {
               <CheckCircle className="w-16 h-16 text-green-600" />
             </div>
           </div>
-          
           <h2 className="text-2xl font-bold text-gray-800 mb-3">
             পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে!
           </h2>
-          
           <p className="text-gray-600 mb-6">
             আপনার নতুন পাসওয়ার্ড সেট করা হয়েছে। এখন আপনি আপনার নতুন পাসওয়ার্ড দিয়ে লগইন করতে পারবেন।
           </p>
-          
           <button
             onClick={() => router.push('/login')}
             className="w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition duration-200"
@@ -127,7 +119,6 @@ const ResetPassword = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center px-4 py-12">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* হেডার */}
           <div className="bg-gradient-to-r from-green-600 to-green-500 px-8 py-6">
             <div className="flex justify-center mb-4">
               <div className="bg-white/20 rounded-full p-3">
@@ -142,7 +133,6 @@ const ResetPassword = () => {
             </p>
           </div>
 
-          {/* ফর্ম */}
           <div className="px-8 py-6">
             {error && (
               <div className="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded flex items-start gap-2">
@@ -173,11 +163,7 @@ const ResetPassword = () => {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
-                    )}
+                    {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                   </button>
                 </div>
                 
@@ -201,15 +187,9 @@ const ResetPassword = () => {
                       </span>
                     </div>
                     <ul className="text-xs text-gray-500 space-y-1 mt-2">
-                      <li className={password.length >= 6 ? "text-green-600" : ""}>
-                        • কমপক্ষে ৬ অক্ষর
-                      </li>
-                      <li className={/[A-Z]/.test(password) ? "text-green-600" : ""}>
-                        • একটি বড় হাতের অক্ষর (A-Z)
-                      </li>
-                      <li className={/[0-9]/.test(password) ? "text-green-600" : ""}>
-                        • একটি সংখ্যা (0-9)
-                      </li>
+                      <li className={password.length >= 6 ? "text-green-600" : ""}>• কমপক্ষে ৬ অক্ষর</li>
+                      <li className={/[A-Z]/.test(password) ? "text-green-600" : ""}>• একটি বড় হাতের অক্ষর (A-Z)</li>
+                      <li className={/[0-9]/.test(password) ? "text-green-600" : ""}>• একটি সংখ্যা (0-9)</li>
                     </ul>
                   </div>
                 )}
@@ -236,17 +216,11 @@ const ResetPassword = () => {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400" />
-                    )}
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
                   </button>
                 </div>
                 {confirmPassword && password !== confirmPassword && (
-                  <p className="mt-1 text-xs text-red-500">
-                    পাসওয়ার্ড দুটি মিলছে না
-                  </p>
+                  <p className="mt-1 text-xs text-red-500">পাসওয়ার্ড দুটি মিলছে না</p>
                 )}
               </div>
 
@@ -281,4 +255,21 @@ const ResetPassword = () => {
   );
 };
 
-export default ResetPassword;
+// Loading fallback
+const ResetPasswordLoading = () => (
+  <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <p className="text-gray-600">Loading...</p>
+    </div>
+  </div>
+);
+
+// Page component with Suspense boundary
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}

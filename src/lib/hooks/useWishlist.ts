@@ -7,7 +7,7 @@ import { addToWishlist, removeFromWishlist, toggleWishlist, clearWishlist } from
 import toast from 'react-hot-toast';
 
 interface WishlistItemType {
-  id: number;
+  id: number ;
   name: string;
   price: number;
   originalPrice: number;

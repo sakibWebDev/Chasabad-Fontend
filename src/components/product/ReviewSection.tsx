@@ -156,7 +156,6 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({
           <Button 
             onClick={() => setShowReviewForm(true)} 
             variant="primary"
-            size="medium"
           >
             Write a Review
           </Button>
@@ -233,14 +232,13 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({
             <Button 
               onClick={() => setShowReviewForm(false)} 
               variant="secondary"
-              size="medium"
             >
               Cancel
             </Button>
             <Button 
               onClick={handleSubmitReview} 
               variant="primary"
-              size="medium"
+              
               disabled={submitting || !newReview.comment.trim()}
             >
               {submitting ? 'Submitting...' : 'Submit Review'}
@@ -312,7 +310,6 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({
               <Button 
                 onClick={() => setShowReviewForm(true)} 
                 variant="primary"
-                size="medium"
               >
                 Write a Review
               </Button>

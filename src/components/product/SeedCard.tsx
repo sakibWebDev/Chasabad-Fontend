@@ -19,6 +19,7 @@ interface SeedCardProps {
 export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const { addToCart, isInCart } = useCart();
   const { isInWishlist, toggleItem } = useWishlist();
 
@@ -49,26 +50,42 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
     }
   };
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  // Convert seed id to number (since wishlist expects number)
+  const seedId = typeof seed.id === 'string' ? parseInt(seed.id, 10) : seed.id;
+
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!isInCart(seed.id)) {
-      addToCart({ 
-        id: seed.id, 
-        name: seed.name, 
-        price: seed.seed_cost, 
-        image: seed.image 
-      });
-      toast.success(`${seed.name} কার্টে যোগ হয়েছে!`, {
-        icon: '🛒',
-        duration: 2000,
-      });
-    } else {
+    if (isInCart(seedId)) {
       toast.error('পণ্যটি ইতিমধ্যে কার্টে আছে', {
         icon: '⚠️',
         duration: 2000,
       });
+      return;
+    }
+    
+    setIsAddingToCart(true);
+    
+    try {
+      addToCart({ 
+        id: seedId, 
+        name: seed.name, 
+        price: Number(seed.seed_cost), 
+        image: seed.image 
+      });
+      
+      toast.success(`${seed.name} কার্টে যোগ হয়েছে!`, {
+        icon: '🛒',
+        duration: 2000,
+      });
+    } catch (error) {
+      toast.error('কার্টে যোগ করতে ব্যর্থ হয়েছে', {
+        icon: '❌',
+        duration: 2000,
+      });
+    } finally {
+      setIsAddingToCart(false);
     }
   };
 
@@ -76,26 +93,21 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
     e.preventDefault();
     e.stopPropagation();
     
-    toggleItem({ 
-      id: seed.id, 
-      name: seed.name, 
-      price: seed.seed_cost, 
-      originalPrice: seed.market_price, 
-      category: seed.category, 
-      image: seed.image 
-    });
+    // Prepare wishlist item with all required fields
+   const wishlistItem = {
+  id: seedId,
+  name: seed.name,
+  price: Number(seed.seed_cost),
+  originalPrice: Number(seed.market_price) || Number(seed.seed_cost),
+  rating: (seed as any).rating || 0,
+  sold: (seed as any).sold || 0,
+  category: seed.category || 'বীজ',
+  badge: (seed as any).badge || seed.organic_certified ? 'অর্গানিক' : '',
+  image: seed.image || null,
+};
     
-    if (!isInWishlist(seed.id)) {
-      toast.success(`${seed.name} উইশলিস্টে যোগ হয়েছে!`, {
-        icon: '❤️',
-        duration: 2000,
-      });
-    } else {
-      toast.success(`${seed.name} উইশলিস্ট থেকে সরানো হয়েছে`, {
-        icon: '💔',
-        duration: 2000,
-      });
-    }
+    // toggleItem will handle both add and remove with its own toast
+    toggleItem(wishlistItem, true);
   };
 
   if (viewMode === 'list') {
@@ -144,9 +156,10 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
               <button
                 onClick={handleToggleWishlist}
                 className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:scale-110 transition-transform"
+                aria-label={isInWishlist(seedId) ? 'উইশলিস্ট থেকে সরান' : 'উইশলিস্টে যোগ করুন'}
               >
                 <Heart className={`h-4 w-4 transition-colors ${
-                  isInWishlist(seed.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'
+                  isInWishlist(seedId) ? 'fill-red-500 text-red-500' : 'text-gray-600'
                 }`} />
               </button>
             </div>
@@ -161,9 +174,9 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
                   <p className="text-xs text-gray-400 italic mt-1">{seed.scientific_name}</p>
                 </div>
                 <div className="text-right ml-4">
-                  <div className="text-2xl font-bold text-emerald-600">৳{seed.seed_cost}</div>
-                  {seed.market_price > seed.seed_cost && (
-                    <div className="text-xs text-gray-400 line-through">৳{seed.market_price}</div>
+                  <div className="text-2xl font-bold text-emerald-600">৳{Number(seed.seed_cost).toLocaleString()}</div>
+                  {seed.market_price && Number(seed.market_price) > Number(seed.seed_cost) && (
+                    <div className="text-xs text-gray-400 line-through">৳{Number(seed.market_price).toLocaleString()}</div>
                   )}
                   <div className="text-xs text-gray-500">প্রতি কেজি</div>
                 </div>
@@ -201,20 +214,23 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
                 <div className="flex gap-2">
                   <button
                     onClick={handleAddToCart}
-                    disabled={isInCart(seed.id)}
+                    disabled={isInCart(seedId) || isAddingToCart}
                     className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
-                      isInCart(seed.id)
+                      isInCart(seedId)
                         ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                         : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm hover:shadow'
                     }`}
                   >
                     <ShoppingCart className="h-3.5 w-3.5" />
-                    {isInCart(seed.id) ? 'যুক্ত হয়েছে' : 'কার্টে যোগ করুন'}
+                    {isAddingToCart ? 'যোগ হচ্ছে...' : isInCart(seedId) ? 'যুক্ত হয়েছে' : 'কার্টে যোগ করুন'}
                   </button>
-                  <button className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition text-sm font-medium flex items-center gap-1">
+                  <Link 
+                    href={`/product/${seed.id}`}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 hover:border-emerald-300 hover:text-emerald-600 transition text-sm font-medium flex items-center gap-1"
+                  >
                     <Eye className="h-3.5 w-3.5" />
                     বিস্তারিত
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -228,7 +244,7 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
   return (
     <Link href={`/product/${seed.id}`} className="block group">
       <div 
-        className="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+        className="bg-white rounded-xl overflow-hidden border border-gray-100 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 h-full flex flex-col"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
@@ -289,21 +305,23 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
             <button
               onClick={handleToggleWishlist}
               className="p-2 bg-white rounded-full shadow-lg hover:scale-110 transition-transform"
+              aria-label={isInWishlist(seedId) ? 'উইশলিস্ট থেকে সরান' : 'উইশলিস্টে যোগ করুন'}
             >
               <Heart className={`h-4 w-4 transition-colors ${
-                isInWishlist(seed.id) ? 'fill-red-500 text-red-500' : 'text-gray-600'
+                isInWishlist(seedId) ? 'fill-red-500 text-red-500' : 'text-gray-600'
               }`} />
             </button>
             <button
               onClick={handleAddToCart}
-              className="p-2 bg-white rounded-full shadow-lg hover:scale-110 transition-transform"
+              disabled={isAddingToCart}
+              className="p-2 bg-white rounded-full shadow-lg hover:scale-110 transition-transform disabled:opacity-50"
             >
               <ShoppingCart className="h-4 w-4 text-emerald-600" />
             </button>
           </div>
         </div>
         
-        <div className="p-4">
+        <div className="p-4 flex-1 flex flex-col">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <h3 className="font-bold text-gray-800 group-hover:text-emerald-600 transition line-clamp-1">
@@ -312,9 +330,9 @@ export default function SeedCard({ seed, viewMode = 'grid' }: SeedCardProps) {
               <p className="text-xs text-gray-500 line-clamp-1">{seed.name_en}</p>
             </div>
             <div className="text-right">
-              <div className="text-xl font-bold text-emerald-600">৳{seed.seed_cost}</div>
-              {seed.market_price > seed.seed_cost && (
-                <div className="text-xs text-gray-400 line-through">৳{seed.market_price}</div>
+              <div className="text-xl font-bold text-emerald-600">৳{Number(seed.seed_cost).toLocaleString()}</div>
+              {seed.market_price && Number(seed.market_price) > Number(seed.seed_cost) && (
+                <div className="text-xs text-gray-400 line-through">৳{Number(seed.market_price).toLocaleString()}</div>
               )}
             </div>
           </div>
